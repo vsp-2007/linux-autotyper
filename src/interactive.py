@@ -216,10 +216,13 @@ class InteractiveController:
         with self._lock:
             if not self._paused:
                 self._external_count = 1
-                self._pause_with_reason("External activity detected")
+                self._paused = True
+                self._pause_reason = "External activity detected"
+                pause_cb = self.on_pause
             else:
                 self._external_count += 1
                 self._pause_reason = f"External activity ({self._external_count} events)"
+                pause_cb = self.on_pause
             
             if self._external_count >= self.MAX_EXTERNAL_EVENTS:
                 self._terminate = True
@@ -227,6 +230,8 @@ class InteractiveController:
             else:
                 terminate_cb = None
         
+        if pause_cb:
+            pause_cb(self._pause_reason)
         if terminate_cb:
             terminate_cb()
         
