@@ -129,7 +129,6 @@ sudo usermod -aG input $USER
 ```
 
 ---
-
 ## Architecture
 ```text
 linux-autotyper/
