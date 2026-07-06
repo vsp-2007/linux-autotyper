@@ -30,6 +30,32 @@ class Backend(ABC):
         """
         pass
     
+    def type_text_interactive(
+        self,
+        text: str,
+        delay_min: int,
+        delay_max: int,
+        get_delays: Callable[[], tuple[int, int]],
+        should_pause: Callable[[], bool],
+        check_focus: Optional[Callable[[], bool]] = None,
+    ) -> bool:
+        """
+        Interactive typing with pause/resume/focus support.
+        
+        Args:
+            text: Text to type
+            delay_min: Initial minimum delay between chars (ms)
+            delay_max: Initial maximum delay between chars (ms)
+            get_delays: Callable returning current (delay_min, delay_max)
+            should_pause: Callable returning True if should continue, False if paused/terminated
+            check_focus: Optional callable returning True if focus is stable
+            
+        Returns:
+            True if successful, False if terminated or error
+        """
+        # Default fallback: non-interactive bulk typing
+        return self.type_text(text, delay_min, delay_max)
+    
     def _check_command(self, cmd: str) -> bool:
         """Check if a command exists in PATH."""
         return shutil.which(cmd) is not None
