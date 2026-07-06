@@ -14,11 +14,9 @@ class YdotoolBackend(Backend):
     
     def _check_ydotoold_running(self) -> bool:
         import os
-        # ydotool communicates via /dev/uinput or socket
         return os.path.exists("/dev/uinput") or os.path.exists("/var/run/ydotool.socket")
     
     def type_text(self, text: str, delay_min: int, delay_max: int) -> bool:
-        # ydotool types from stdin with -d delay (ms)
         delay = random.randint(delay_min, delay_max)
         try:
             proc = subprocess.run(
@@ -32,3 +30,41 @@ class YdotoolBackend(Backend):
         except subprocess.CalledProcessError as e:
             print(f"ydotool error: {e.stderr if e.stderr else e}")
             return False
+    
+    def type_text_interactive(
+        self,
+        text: str,
+        delay_min: int,
+        delay_max: int,
+        get_delays,
+        should_pause,
+        check_focus=None,
+    ) -> bool:
+        CHUNK_SIZE = 80
+        
+        chunks = [text[i:i+CHUNK_SIZE] for i in range(0, len(text), CHUNK_SIZE)]
+        
+        for chunk in chunks:
+            if should_pause():
+                return False
+            
+            delay_min, delay_max = get_delays()
+            delay = random.randint(delay_min, delay_max)
+            
+            try:
+                subprocess.run(
+                    ["ydotool", "type", "-d", str(delay), "--"],
+                    input=chunk,
+                    text=True,
+                    check=True,
+                    capture_output=True
+                )
+            except subprocess.CalledProcessError as e:
+                print(f"ydotool error: {e.stderr if e.stderr else e}")
+                return False
+            
+            if check_focus and not check_focus():
+                print("[FOCUS LOST] Focus shifted away from target window — aborting")
+                return False
+        
+        return True

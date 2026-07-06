@@ -14,7 +14,6 @@ class WtypeBackend(Backend):
     
     def _is_wlroots(self) -> bool:
         import os
-        # Check for wlroots-based compositors
         desktop = os.environ.get("XDG_CURRENT_DESKTOP", "").lower()
         session = os.environ.get("XDG_SESSION_DESKTOP", "").lower()
         compositor = os.environ.get("WAYLAND_DISPLAY", "")
@@ -23,7 +22,6 @@ class WtypeBackend(Backend):
         return any(d in desktop for d in wlroots_desktops) or any(d in session for d in wlroots_desktops) or bool(compositor)
     
     def type_text(self, text: str, delay_min: int, delay_max: int) -> bool:
-        # wtype reads from stdin, -d for delay (ms)
         delay = random.randint(delay_min, delay_max)
         try:
             proc = subprocess.run(
@@ -37,3 +35,41 @@ class WtypeBackend(Backend):
         except subprocess.CalledProcessError as e:
             print(f"wtype error: {e.stderr if e.stderr else e}")
             return False
+    
+    def type_text_interactive(
+        self,
+        text: str,
+        delay_min: int,
+        delay_max: int,
+        get_delays,
+        should_pause,
+        check_focus=None,
+    ) -> bool:
+        CHUNK_SIZE = 80
+        
+        chunks = [text[i:i+CHUNK_SIZE] for i in range(0, len(text), CHUNK_SIZE)]
+        
+        for chunk in chunks:
+            if should_pause():
+                return False
+            
+            delay_min, delay_max = get_delays()
+            delay = random.randint(delay_min, delay_max)
+            
+            try:
+                subprocess.run(
+                    ["wtype", "-d", str(delay), "-"],
+                    input=chunk,
+                    text=True,
+                    check=True,
+                    capture_output=True
+                )
+            except subprocess.CalledProcessError as e:
+                print(f"wtype error: {e.stderr if e.stderr else e}")
+                return False
+            
+            if check_focus and not check_focus():
+                print("[FOCUS LOST] Focus shifted away from target window — aborting")
+                return False
+        
+        return True
