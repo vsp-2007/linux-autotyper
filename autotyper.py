@@ -22,6 +22,7 @@ from utils.compositor import detect_session_type, detect_compositor, get_backend
 from utils.focus_guard import FocusGuard, should_use_focus_guard
 from src.interactive import InteractiveController
 from src.ide_normalizer import normalize_for_ide
+from src.verifier import verify_and_correct
 
 
 def parse_args():
@@ -94,6 +95,11 @@ Examples:
         "--ide",
         action="store_true",
         help="Normalize whitespace for IDE pasting (tabs→spaces, collapse blank lines, trim trailing)"
+    )
+    parser.add_argument(
+        "--verify-correct",
+        action="store_true",
+        help="BETA: Verify typed text matches expected and auto-correct mismatches (X11 only, pynput/xdotool)"
     )
     
     return parser.parse_args()
@@ -247,6 +253,11 @@ def main():
         interactive.stop()
     
     if success:
+        # BETA: Verify and auto-correct if --verify-correct flag is set
+        if args.verify_correct:
+            if not verify_and_correct(text):
+                print("[VERIFY] Verification/correction failed", file=sys.stderr)
+                sys.exit(1)
         print("Done!")
     else:
         print("Failed!", file=sys.stderr)
