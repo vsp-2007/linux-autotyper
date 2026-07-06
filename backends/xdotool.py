@@ -38,16 +38,21 @@ class XdotoolBackend(Backend):
         should_pause,
         check_focus=None,
     ) -> bool:
-        # Chunk size for bulk typing — small enough to catch pauses/focus loss
         CHUNK_SIZE = 80
         
         chunks = [text[i:i+CHUNK_SIZE] for i in range(0, len(text), CHUNK_SIZE)]
         
         for chunk in chunks:
+            # Check pause before chunk
             if should_pause():
                 # Wait for resume or termination
-                # Note: InteractiveController.wait_if_paused() would be called by autotyper
-                return False  # Terminated
+                if not self._wait_for_resume(should_pause):
+                    return False  # terminated
+            
+            # Focus check before typing chunk
+            if check_focus and not check_focus():
+                print("[FOCUS LOST] Focus shifted away from target window — aborting")
+                return False
             
             delay_min, delay_max = get_delays()
             delay = random.randint(delay_min, delay_max)
@@ -62,9 +67,16 @@ class XdotoolBackend(Backend):
                 print(f"xdotool error: {e.stderr.decode() if e.stderr else e}")
                 return False
             
-            # Check focus after each chunk if guard provided
+            # Focus check after chunk
             if check_focus and not check_focus():
                 print("[FOCUS LOST] Focus shifted away from target window — aborting")
                 return False
         
         return True
+    
+    def _wait_for_resume(self, should_pause):
+        """Wait for resume or termination. Returns True if resumed, False if terminated."""
+        while True:
+            time.sleep(0.1)
+            if not should_pause():
+                return True  # resumed

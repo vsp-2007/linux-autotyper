@@ -50,7 +50,15 @@ class WtypeBackend(Backend):
         chunks = [text[i:i+CHUNK_SIZE] for i in range(0, len(text), CHUNK_SIZE)]
         
         for chunk in chunks:
+            # Check pause before chunk
             if should_pause():
+                # Wait for resume or termination
+                if not self._wait_for_resume(should_pause):
+                    return False  # terminated
+            
+            # Focus check before typing chunk
+            if check_focus and not check_focus():
+                print("[FOCUS LOST] Focus shifted away from target window — aborting")
                 return False
             
             delay_min, delay_max = get_delays()
@@ -68,8 +76,16 @@ class WtypeBackend(Backend):
                 print(f"wtype error: {e.stderr if e.stderr else e}")
                 return False
             
+            # Focus check after chunk
             if check_focus and not check_focus():
                 print("[FOCUS LOST] Focus shifted away from target window — aborting")
                 return False
         
         return True
+    
+    def _wait_for_resume(self, should_pause):
+        """Wait for resume or termination. Returns True if resumed, False if terminated."""
+        while True:
+            time.sleep(0.1)
+            if not should_pause():
+                return True  # resumed
