@@ -273,6 +273,19 @@ class InteractiveController:
             resume_cb()
         return True
     
+    def wait_if_paused(self) -> bool:
+        """
+        Block until resume or termination. Call from typing loop.
+        Returns False if terminated, True if resumed.
+        """
+        while True:
+            with self._lock:
+                if self._terminate:
+                    return False
+                if not self._paused:
+                    return True
+            time.sleep(0.1)
+    
     def get_delays(self) -> tuple[int, int]:
         with self._lock:
             return self.delay_min, self.delay_max
