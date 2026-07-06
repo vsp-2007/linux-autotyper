@@ -67,6 +67,7 @@ python autotyper.py [options]
 | `--no-indent-strip` | Keep leading whitespace on each line |
 | `--no-countdown` | Skip 5-second countdown |
 | `--list-backends` | Show available backends and exit |
+| `--ide` | Normalize whitespace for IDE pasting (tabs→spaces, collapse blank lines, trim trailing) |
 
 **Examples:**
 ```bash
@@ -81,7 +82,40 @@ cat notes.txt | python autotyper.py --stdin --no-countdown
 
 # Force specific backend
 python autotyper.py --backend wtype
+
+# Normalize code for IDE pasting (tabs→4 spaces, collapse blank lines, trim trailing)
+python autotyper.py --file code.py --ide
 ```
+
+---
+
+## Interactive Mode (Terminal Only)
+
+When running with clipboard input (no `--file`, no `--stdin`) in an interactive terminal, the script enters **interactive mode**:
+
+| Key | Action |
+|-----|--------|
+| `a` | Accelerate (decrease delay by 20ms) |
+| `d` | Decelerate (increase delay by 20ms) |
+
+- Pressing `a`/`d` pauses typing, prints new delay, resumes after 10s inactivity
+- Any external key press or mouse click pauses typing (prints reason)
+- 2+ external events during a single pause = **terminate script**
+- No external activity for 10s = auto-resume
+
+> **Note:** Only works when terminal has focus (stdin polling). Not a global hotkey.
+
+---
+
+## Focus Guard (Wayland Tiling WMs)
+
+On Wayland tiling compositors (Sway, Hyprland, River, etc.), mouse hover over other windows can steal focus mid-typing. **Focus Guard** automatically:
+
+1. Captures the target window at startup (via `swaymsg` / `hyprctl` / `xdotool`)
+2. Validates focus before and after each typing chunk
+3. Aborts if focus shifts away — prevents typing into wrong window
+
+No configuration needed — activates automatically on detected tiling WMs.
 
 ---
 
@@ -140,10 +174,15 @@ linux-autotyper/
 │   ├── ydotool.py
 │   ├── wtype.py
 │   └── pynput_backend.py
+├── src/
+│   ├── __init__.py
+│   ├── interactive.py        # InteractiveController (a/d speed, pause/resume)
+│   └── ide_normalizer.py     # Whitespace normalization for IDE pasting
 ├── utils/
 │   ├── __init__.py
 │   ├── compositor.py         # X11/Wayland + compositor detection
 │   ├── clipboard.py          # Clipboard abstraction
+│   ├── focus_guard.py        # FocusGuard for Wayland tiling WMs
 │   └── text_utils.py         # Char mapping, indent strip
 ├── setup.sh
 ├── requirements.txt
