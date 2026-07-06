@@ -179,7 +179,7 @@ def main():
             sys.exit(1)
     
     # Determine if interactive mode should activate
-    # Only when: TTY, clipboard input (not --file/--stdin), not --no-countdown
+    # Only when: TTY, clipboard input (not --file/--stdin)
     use_interactive = (
         sys.stdin.isatty() and
         not args.stdin and
@@ -203,17 +203,17 @@ def main():
         # Attach to pynput backend for self-typing gate
         if backend.name == "pynput":
             backend._interactive_controller = interactive
-        
-        # Initialize FocusGuard for Wayland tiling WMs
-        if should_use_focus_guard():
-            focus_guard = FocusGuard()
-            if focus_guard.capture_initial():
-                init_info = focus_guard.get_initial_info()
-                print(f"[FOCUS GUARD] Monitoring window: {init_info.title or init_info.class_name or init_info.window_id}")
     
     # Countdown
     if not args.no_countdown:
         countdown(5)
+    
+    # Initialize FocusGuard AFTER countdown — captures the window user clicked during countdown
+    if use_interactive and should_use_focus_guard():
+        focus_guard = FocusGuard()
+        if focus_guard.capture_initial():
+            init_info = focus_guard.get_initial_info()
+            print(f"[FOCUS GUARD] Monitoring window: {init_info.title or init_info.class_name or init_info.window_id}")
     
     # Type!
     print(f"Typing {len(text)} chars via {backend.name}...")
