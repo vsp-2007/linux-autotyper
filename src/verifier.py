@@ -16,6 +16,7 @@ import time
 import subprocess
 import shutil
 import os
+import difflib
 from typing import List, Optional
 from dataclasses import dataclass
 from enum import Enum
@@ -38,7 +39,7 @@ class DiffRegion:
 
 def compute_diff(expected: str, actual: str) -> List[DiffRegion]:
     """
-    Compute diff regions between expected and actual text.
+    Compute diff regions between expected and actual text using difflib.
     Returns list of regions that need correction, with line/col coordinates.
     """
     if expected == actual:
@@ -47,28 +48,50 @@ def compute_diff(expected: str, actual: str) -> List[DiffRegion]:
     expected_lines = expected.splitlines(keepends=True)
     actual_lines = actual.splitlines(keepends=True)
     
+    # Use difflib for proper diff with insert/delete handling
+    matcher = difflib.SequenceMatcher(None, expected_lines, actual_lines)
+    
     diffs = []
     
-    # Compare line by line
-    max_lines = max(len(expected_lines), len(actual_lines))
-    for i in range(max_lines):
-        exp_line = expected_lines[i] if i < len(expected_lines) else ""
-        act_line = actual_lines[i] if i < len(actual_lines) else ""
-        
-        if exp_line == act_line:
+    for tag, i1, i2, j1, j2 in matcher.get_opcodes():
+        if tag == 'equal':
             continue
         
-        # Find first differing character
-        col = 0
-        while col < len(exp_line) and col < len(act_line) and exp_line[col] == act_line[col]:
-            col += 1
+        if tag == 'replace':
+            # Lines changed - compare character by character within the range
+            for exp_idx, act_idx in zip(range(i1, i2), range(j1, j2)):
+                exp_line = expected_lines[exp_idx]
+                act_line = actual_lines[act_idx]
+                if exp_line != act_line:
+                    col = 0
+                    while col < len(exp_line) and col < len(act_line) and exp_line[col] == act_line[col]:
+                        col += 1
+                    diffs.append(DiffRegion(
+                        line=exp_idx,
+                        col=col,
+                        expected=exp_line[col:],
+                        actual=act_line[col:] if col < len(act_line) else ""
+                    ))
         
-        diffs.append(DiffRegion(
-            line=i,
-            col=col,
-            expected=exp_line[col:],
-            actual=act_line[col:] if col < len(act_line) else ""
-        ))
+        elif tag == 'delete':
+            # Lines deleted from expected (missing in actual)
+            for exp_idx in range(i1, i2):
+                diffs.append(DiffRegion(
+                    line=exp_idx,
+                    col=0,
+                    expected=expected_lines[exp_idx],
+                    actual=""
+                ))
+        
+        elif tag == 'insert':
+            # Lines inserted in actual (extra in actual)
+            for act_idx in range(j1, j2):
+                diffs.append(DiffRegion(
+                    line=act_idx,
+                    col=0,
+                    expected="",
+                    actual=actual_lines[act_idx]
+                ))
     
     return diffs
 
@@ -182,7 +205,7 @@ def _verify_and_correct_pynput(
         if not diffs:
             return True
         
-        print(f"[VERIFY] Attempt {attempt + 1}: Found {len(diffs)} mismatch line(s), correcting...")
+        print(f"[VERIFY] Attempt {attempt + 1}: Found {len(diffs)} mismatch region(s), correcting...")
         
         for diff in diffs:
             # Navigate to line start
@@ -258,7 +281,7 @@ def _verify_and_correct_xdotool(
         if not diffs:
             return True
         
-        print(f"[VERIFY] Attempt {attempt + 1}: Found {len(diffs)} mismatch line(s), correcting...")
+        print(f"[VERIFY] Attempt {attempt + 1}: Found {len(diffs)} mismatch region(s), correcting...")
         
         for diff in diffs:
             # Navigate to line start
