@@ -68,6 +68,7 @@ python autotyper.py [options]
 | `--no-countdown` | Skip 5-second countdown |
 | `--list-backends` | Show available backends and exit |
 | `--ide` | Normalize whitespace for IDE pasting (tabs→spaces, collapse blank lines, trim trailing) |
+| `--verify-correct` | **BETA** Verify typed text matches expected and auto-correct mismatches (X11 only, pynput/xdotool) |
 
 **Examples:**
 ```bash
@@ -85,6 +86,10 @@ python autotyper.py --backend wtype
 
 # Normalize code for IDE pasting (tabs→4 spaces, collapse blank lines, trim trailing)
 python autotyper.py --file code.py --ide
+
+# BETA: Verify and auto-correct after typing (X11 only)
+python autotyper.py --verify-correct
+python autotyper.py --file code.py --verify-correct
 ```
 
 ---
@@ -116,6 +121,38 @@ On Wayland tiling compositors (Sway, Hyprland, River, etc.), mouse hover over ot
 3. Aborts if focus shifts away — prevents typing into wrong window
 
 No configuration needed — activates automatically on detected tiling WMs.
+
+---
+
+## Verification & Auto-Correction (BETA)
+
+**`--verify-correct`** — After typing completes, automatically verify the typed text matches what was expected and fix any discrepancies.
+
+**How it works:**
+1. **Capture** — Select all (`Ctrl+A`), copy (`Ctrl+C`) the typed content
+2. **Compare** — Diff against expected text using line/character-level comparison
+3. **Correct** — Navigate to each mismatch (Home → Down to line → Right to column), select wrong text (`Shift+Right`), delete, retype correct text
+4. **Retry** — Up to 2 correction attempts by default
+
+**Requirements:**
+- X11 session (Wayland not supported — no key combo API)
+- `pynput` (preferred) or `xdotool` installed
+
+**Supported backends:**
+- `pynput` — Full support (pure Python key control)
+- `xdotool` — Full support (via subprocess)
+- `ydotool` / `wtype` — NOT SUPPORTED (no key combo API)
+
+**Usage:**
+```bash
+# Interactive mode with verification
+python autotyper.py --verify-correct
+
+# With file input
+python autotyper.py --file code.py --verify-correct
+```
+
+> **Note:** This is a BETA feature. On unsupported platforms/backends, it prints a notice and skips gracefully without failing.
 
 ---
 
